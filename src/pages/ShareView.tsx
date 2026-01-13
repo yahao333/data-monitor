@@ -1,15 +1,10 @@
-import { createSignal, onMount, Show, For } from "solid-js";
+import { createSignal, onMount, Show } from "solid-js";
 import * as api from "~/lib/api";
-import { formatDate } from "~/lib/utils";
-import type { DataPoint, DataProject } from "~/types";
+import type { DataProject } from "~/types";
+import { Database } from "lucide-solid";
 
-interface ShareViewProps {
-  token: string;
-}
-
-export function ShareView(props: ShareViewProps) {
+export function ShareView(props: { token: string }) {
   const [project, setProject] = createSignal<DataProject | null>(null);
-  const [dataPoints, setDataPoints] = createSignal<DataPoint[]>([]);
   const [isLoading, setIsLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
 
@@ -17,17 +12,12 @@ export function ShareView(props: ShareViewProps) {
   async function loadData() {
     setIsLoading(true);
     try {
-      // 通过令牌获取项目
       const proj = await api.getProjectByToken(props.token);
       if (!proj) {
         setError("项目不存在或令牌无效");
         return;
       }
       setProject(proj);
-
-      // 获取数据点
-      const data = await api.listDataPoints(proj.id);
-      setDataPoints(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "加载数据失败");
     } finally {
@@ -39,19 +29,25 @@ export function ShareView(props: ShareViewProps) {
     loadData();
   });
 
-  // 计算统计信息
-  const stats = () => {
-    const points = dataPoints();
-    if (points.length === 0) return { count: 0, avg: "0", max: 0, min: 0 };
+  // 格式化 JSON 显示
+  function formatJsonDisplay(content: Record<string, unknown> | unknown[]): string {
+    if (Array.isArray(content)) {
+      return JSON.stringify(content, null, 2);
+    }
+    return JSON.stringify(content, null, 2);
+  }
 
-    const values = points.map((p) => p.value);
-    return {
-      count: points.length,
-      avg: (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2),
-      max: Math.max(...values),
-      min: Math.min(...values),
-    };
-  };
+  // 获取数据统计
+  function getDataStats() {
+    const content = project()?.content;
+    if (!content) return { type: "empty", count: 0 };
+    if (Array.isArray(content)) {
+      return { type: "array", count: content.length };
+    }
+    return { type: "object", count: Object.keys(content).length };
+  }
+
+  const stats = () => getDataStats();
 
   return (
     <div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
@@ -83,75 +79,32 @@ export function ShareView(props: ShareViewProps) {
         </Show>
 
         {/* 数据展示 */}
-        <Show when={!isLoading() && !error()}>
+        <Show when={!isLoading() && !error() && project()}>
           {/* 统计卡片 */}
           <div class="mb-6 grid gap-4 sm:grid-cols-4">
             <div class="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
-              <p class="text-sm text-gray-500 dark:text-gray-400">数据点数</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                <Database class="inline w-4 h-4 mr-1" />
+                数据类型
+              </p>
+              <p class="text-2xl font-bold capitalize">{stats().type}</p>
+            </div>
+            <div class="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
+              <p class="text-sm text-gray-500 dark:text-gray-400">数据项数</p>
               <p class="text-2xl font-bold">{stats().count}</p>
-            </div>
-            <div class="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
-              <p class="text-sm text-gray-500 dark:text-gray-400">平均值</p>
-              <p class="text-2xl font-bold">{stats().avg}</p>
-            </div>
-            <div class="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
-              <p class="text-sm text-gray-500 dark:text-gray-400">最大值</p>
-              <p class="text-2xl font-bold">{stats().max}</p>
-            </div>
-            <div class="rounded-lg bg-white p-4 shadow dark:bg-gray-800">
-              <p class="text-sm text-gray-500 dark:text-gray-400">最小值</p>
-              <p class="text-2xl font-bold">{stats().min}</p>
             </div>
           </div>
 
-          {/* 数据列表 */}
+          {/* JSON 数据展示 */}
           <div class="rounded-lg bg-white shadow dark:bg-gray-800">
             <div class="border-b px-6 py-4 dark:border-gray-700">
-              <h2 class="text-lg font-semibold">数据详情</h2>
+              <h2 class="text-lg font-semibold">数据内容</h2>
             </div>
-            <Show
-              when={dataPoints().length > 0}
-              fallback={
-                <div class="p-6 text-center text-gray-500">
-                  暂无数据
-                </div>
-              }
-            >
-              <div class="overflow-x-auto">
-                <table class="w-full">
-                  <thead class="bg-gray-50 dark:bg-gray-700">
-                    <tr>
-                      <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">
-                        名称
-                      </th>
-                      <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">
-                        数值
-                      </th>
-                      <th class="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-300">
-                        时间
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
-                    <For each={dataPoints()}>
-                      {(point) => (
-                        <tr>
-                          <td class="whitespace-nowrap px-6 py-4 text-sm font-medium text-gray-900 dark:text-gray-100">
-                            {point.name}
-                          </td>
-                          <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                            {point.value} {point.unit}
-                          </td>
-                          <td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                            {formatDate(point.timestamp)}
-                          </td>
-                        </tr>
-                      )}
-                    </For>
-                  </tbody>
-                </table>
-              </div>
-            </Show>
+            <div class="p-6">
+              <pre class="text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 p-4 rounded overflow-x-auto">
+                {formatJsonDisplay(project()?.content || {})}
+              </pre>
+            </div>
           </div>
         </Show>
       </div>

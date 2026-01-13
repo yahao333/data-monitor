@@ -1,5 +1,5 @@
 import { createSignal, createRoot } from "solid-js";
-import type { DataProject, DataPoint } from "~/types";
+import type { DataProject } from "~/types";
 
 // Clerk 实例类型
 let clerkInstance: any = null;
@@ -27,7 +27,6 @@ function createAppStore() {
   // 项目状态
   const [projects, setProjects] = createSignal<DataProject[]>([]);
   const [currentProject, setCurrentProject] = createSignal<DataProject | null>(null);
-  const [projectData, setProjectData] = createSignal<DataPoint[]>([]);
 
   // 加载状态
   const [isLoading, setIsLoading] = createSignal(false);
@@ -42,8 +41,6 @@ function createAppStore() {
     setProjects,
     currentProject,
     setCurrentProject,
-    projectData,
-    setProjectData,
     isLoading,
     setIsLoading,
     error,

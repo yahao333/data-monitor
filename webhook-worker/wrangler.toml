@@ -1,0 +1,11 @@
+name = "data-monitor-webhook"
+main = "index.ts"
+compatibility_date = "2025-01-01"
+
+[vars]
+# 不在此处定义敏感变量，应通过 Workers 设置添加
+
+# 绑定 Upstash Redis（可选，使用 Workers KV 存储 token 映射）
+# [[kv_namespaces]]
+# binding = "WEBHOOK_TOKENS"
+# id = "your-kv-namespace-id"

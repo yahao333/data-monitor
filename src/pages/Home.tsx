@@ -1,19 +1,24 @@
 import { createSignal, For, Show } from "solid-js";
-import { Button, Input, Textarea, Card, CardHeader, CardTitle, CardDescription, CardContent, Modal } from "~/components";
+import { useNavigate } from "@solidjs/router";
+import { Button, Input, Textarea, Card, CardHeader, CardTitle, CardDescription, CardContent, Modal, JsonEditor } from "~/components";
 import { appStore } from "~/stores";
 import * as api from "~/lib/api";
 import { formatDate } from "~/lib/utils";
-import type { DataProject, DataPoint } from "~/types";
-import { Trash2, Edit, Share2, Plus, RefreshCw } from "lucide-solid";
+import type { DataProject, Webhook } from "~/types";
+import { Trash2, Edit, Share2, Plus, RefreshCw, BarChart3, Database, Webhook as WebhookIcon, Copy, Link } from "lucide-solid";
 
 export function Home() {
+  const navigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = createSignal(false);
   const [showShareModal, setShowShareModal] = createSignal(false);
   const [showDataModal, setShowDataModal] = createSignal(false);
+  const [showWebhookModal, setShowWebhookModal] = createSignal(false);
   const [editingProject, setEditingProject] = createSignal<DataProject | null>(null);
   const [selectedProject, setSelectedProject] = createSignal<DataProject | null>(null);
   const [shareToken, setShareToken] = createSignal("");
   const [isLoading, setIsLoading] = createSignal(false);
+  const [webhooks, setWebhooks] = createSignal<Webhook[]>([]);
+  const [webhookCreating, setWebhookCreating] = createSignal(false);
 
   // 表单状态
   const [formData, setFormData] = createSignal({
@@ -21,14 +26,11 @@ export function Home() {
     description: "",
   });
 
-  // 数据点表单
+  // 数据编辑表单
   const [dataForm, setDataForm] = createSignal({
-    name: "",
-    value: "",
-    unit: "",
+    jsonContent: "{}",
   });
-
-  const [dataPoints, setDataPoints] = createSignal<DataPoint[]>([]);
+  const [jsonValid, setJsonValid] = createSignal(true);
 
   // 加载项目列表
   async function loadProjects() {
@@ -39,19 +41,6 @@ export function Home() {
       appStore.setProjects(projects);
     } catch (err) {
       appStore.setError(err instanceof Error ? err.message : "加载项目失败");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  // 加载数据点
-  async function loadDataPoints(projectId: string) {
-    setIsLoading(true);
-    try {
-      const data = await api.listDataPoints(projectId);
-      setDataPoints(data);
-    } catch (err) {
-      appStore.setError(err instanceof Error ? err.message : "加载数据失败");
     } finally {
       setIsLoading(false);
     }
@@ -123,39 +112,30 @@ export function Home() {
     }
   }
 
-  // 添加数据点
-  async function handleAddDataPoint() {
+  // 更新项目 JSON 数据
+  async function handleUpdateData() {
     const project = selectedProject();
-    if (!project || !dataForm().name || !dataForm().value) return;
+    if (!project || !jsonValid()) return;
 
     setIsLoading(true);
     try {
-      await api.createDataPoint(project.id, {
-        name: dataForm().name,
-        value: parseFloat(dataForm().value),
-        unit: dataForm().unit,
-      });
-      await loadDataPoints(project.id);
+      let content: Record<string, unknown> | unknown[];
+      try {
+        content = JSON.parse(dataForm().jsonContent);
+      } catch {
+        throw new Error("JSON 格式错误");
+      }
+
+      const updated = await api.updateProjectData(project.id, { content });
+      appStore.setProjects(
+        appStore.projects().map((p) => (p.id === updated.id ? updated : p))
+      );
+      setSelectedProject(updated);
       setShowDataModal(false);
-      setDataForm({ name: "", value: "", unit: "" });
+      setDataForm({ jsonContent: "{}" });
+      setJsonValid(true);
     } catch (err) {
-      appStore.setError(err instanceof Error ? err.message : "添加数据失败");
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  // 删除数据点
-  async function handleDeleteDataPoint(dataPointId: string) {
-    const project = selectedProject();
-    if (!project || !confirm("确定要删除这个数据点吗？")) return;
-
-    setIsLoading(true);
-    try {
-      await api.deleteDataPoint(project.id, dataPointId);
-      setDataPoints(dataPoints().filter((d) => d.id !== dataPointId));
-    } catch (err) {
-      appStore.setError(err instanceof Error ? err.message : "删除数据失败");
+      appStore.setError(err instanceof Error ? err.message : "更新数据失败");
     } finally {
       setIsLoading(false);
     }
@@ -171,7 +151,7 @@ export function Home() {
   // 打开项目详情
   function openProjectDetail(project: DataProject) {
     setSelectedProject(project);
-    loadDataPoints(project.id);
+    setDataForm({ jsonContent: JSON.stringify(project.content || {}, null, 2) });
   }
 
   // 复制分享链接
@@ -180,6 +160,91 @@ export function Home() {
     const url = `${window.location.origin}/share/${token}`;
     navigator.clipboard.writeText(url);
     alert("链接已复制到剪贴板");
+  }
+
+  // 格式化 JSON 显示
+  function formatJsonDisplay(content: Record<string, unknown> | unknown[]): string {
+    if (Array.isArray(content)) {
+      return `[${content.length} 个元素]`;
+    }
+    const keys = Object.keys(content);
+    if (keys.length === 0) return "{}";
+    if (keys.length <= 2) {
+      return JSON.stringify(content);
+    }
+    return `{ ${keys.slice(0, 2).join(", ")}... }`;
+  }
+
+  // 打开 webhook 管理弹窗
+  async function openWebhookModal(project: DataProject) {
+    setSelectedProject(project);
+    setShowWebhookModal(true);
+    await loadWebhooks(project.id);
+  }
+
+  // 加载项目的 webhooks
+  async function loadWebhooks(projectId: string) {
+    try {
+      const result = await api.listWebhooks(projectId);
+      if (result.success && result.webhooks) {
+        setWebhooks(result.webhooks);
+      } else {
+        setWebhooks([]);
+      }
+    } catch (err) {
+      console.error("加载 webhooks 失败:", err);
+      setWebhooks([]);
+    }
+  }
+
+  // 创建 webhook
+  async function handleCreateWebhook() {
+    const project = selectedProject();
+    if (!project) return;
+
+    setWebhookCreating(true);
+    try {
+      const result = await api.createWebhook(project.id);
+      if (result.success) {
+        await loadWebhooks(project.id);
+      } else {
+        appStore.setError(result.error || "创建 webhook 失败");
+      }
+    } catch (err) {
+      appStore.setError(err instanceof Error ? err.message : "创建 webhook 失败");
+    } finally {
+      setWebhookCreating(false);
+    }
+  }
+
+  // 删除 webhook
+  async function handleDeleteWebhook(token: string) {
+    if (!confirm("确定要删除这个 webhook 吗？删除后无法通过此 URL 推送数据。")) return;
+
+    const project = selectedProject();
+    if (!project) return;
+
+    try {
+      const result = await api.deleteWebhook(project.id, token);
+      if (result.success) {
+        setWebhooks(webhooks().filter((w) => w.token !== token));
+      } else {
+        appStore.setError(result.error || "删除 webhook 失败");
+      }
+    } catch (err) {
+      appStore.setError(err instanceof Error ? err.message : "删除 webhook 失败");
+    }
+  }
+
+  // 复制 webhook URL
+  function copyWebhookUrl(url: string) {
+    navigator.clipboard.writeText(url);
+    alert("Webhook URL 已复制到剪贴板");
+  }
+
+  // 获取 webhook URL
+  function getWebhookUrl(token: string): string {
+    return api.getWebhookUrl(token);
   }
 
   return (
@@ -252,6 +317,12 @@ export function Home() {
                           <p class="text-sm text-gray-500 dark:text-gray-400">
                             创建时间: {formatDate(project.createdAt)}
                           </p>
+                          <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            <Database class="inline w-3 h-3 mr-1" />
+                            {Array.isArray(project.content)
+                              ? `${project.content.length} 个数据项`
+                              : `${Object.keys(project.content).length} 个字段`}
+                          </p>
                         </CardContent>
                       </div>
                       <div class="mt-4 flex justify-end gap-2 border-t pt-4">
@@ -296,7 +367,7 @@ export function Home() {
 
         {/* 项目详情弹窗 */}
         <Modal
-          isOpen={!!selectedProject() && !showShareModal() && !showCreateModal()}
+          isOpen={!!selectedProject() && !showShareModal() && !showCreateModal() && !showDataModal() && !showWebhookModal()}
           onClose={() => setSelectedProject(null)}
           title={selectedProject()?.name || ""}
         >
@@ -305,41 +376,42 @@ export function Home() {
               {selectedProject()?.description || "暂无描述"}
             </p>
 
-            <div class="flex items-center justify-between">
-              <h4 class="font-medium">数据点</h4>
-              <Button size="sm" onClick={() => setShowDataModal(true)}>
-                <Plus class="mr-1 h-4 w-4" />
-                添加数据
-              </Button>
+            {/* 数据预览 */}
+            <div>
+              <h4 class="font-medium mb-2">当前数据</h4>
+              <pre class="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 p-3 rounded overflow-x-auto max-h-40">
+                {formatJsonDisplay(selectedProject()?.content || {})}
+              </pre>
             </div>
 
-            <div class="max-h-64 overflow-y-auto">
-              <Show
-                when={dataPoints().length > 0}
-                fallback={<p class="text-gray-500">暂无数据</p>}
+            {/* 操作按钮 */}
+            <div class="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={() => {
+                  const project = selectedProject();
+                  if (project) {
+                    setDataForm({ jsonContent: JSON.stringify(project.content || {}, null, 2) });
+                    setShowDataModal(true);
+                  }
+                }}
               >
-                <ul class="space-y-2">
-                  <For each={dataPoints()}>
-                    {(point) => (
-                      <li class="flex items-center justify-between rounded-lg bg-gray-50 p-3 dark:bg-gray-700">
-                        <div>
-                          <p class="font-medium">{point.name}</p>
-                          <p class="text-sm text-gray-500">
-                            {point.value} {point.unit} · {formatDate(point.timestamp)}
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteDataPoint(point.id)}
-                        >
-                          <Trash2 class="h-4 w-4 text-red-500" />
-                        </Button>
-                      </li>
-                    )}
-                  </For>
-                </ul>
-              </Show>
+                <Database class="mr-2 h-4 w-4" />
+                编辑数据
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => navigate(`/project/${selectedProject()?.id}/dashboard`)}
+              >
+                <BarChart3 class="mr-2 h-4 w-4" />
+                监控屏
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => selectedProject() && openWebhookModal(selectedProject()!)}
+              >
+                <WebhookIcon class="mr-2 h-4 w-4" />
+                Webhook
+              </Button>
             </div>
           </div>
         </Modal>
@@ -411,51 +483,130 @@ export function Home() {
           </div>
         </Modal>
 
-        {/* 添加数据弹窗 */}
+        {/* 编辑数据弹窗 */}
         <Modal
           isOpen={showDataModal()}
           onClose={() => {
             setShowDataModal(false);
-            setDataForm({ name: "", value: "", unit: "" });
+            setDataForm({ jsonContent: "{}" });
+            setJsonValid(true);
           }}
-          title="添加数据"
+          title="编辑数据 (JSON)"
         >
           <div class="space-y-4">
-            <Input
-              label="名称"
-              value={dataForm().name}
-              onInput={(e) => setDataForm({ ...dataForm(), name: e.currentTarget.value })}
-              placeholder="数据名称"
-            />
-            <Input
-              label="数值"
-              type="number"
-              value={dataForm().value}
-              onInput={(e) => setDataForm({ ...dataForm(), value: e.currentTarget.value })}
-              placeholder="数值"
-            />
-            <Input
-              label="单位（可选）"
-              value={dataForm().unit}
-              onInput={(e) => setDataForm({ ...dataForm(), unit: e.currentTarget.value })}
-              placeholder="如: °C, %, 个等"
+            <p class="text-sm text-gray-500">
+              直接编辑项目的 JSON 数据，监控屏将实时显示这些数据。
+            </p>
+            <JsonEditor
+              value={dataForm().jsonContent}
+              onChange={(value, isValid) => {
+                setDataForm({ ...dataForm(), jsonContent: value });
+                setJsonValid(isValid);
+              }}
+              placeholder='{"temperature": 25.5, "humidity": 60}'
             />
             <div class="flex justify-end gap-2">
               <Button
                 variant="secondary"
                 onClick={() => {
                   setShowDataModal(false);
-                  setDataForm({ name: "", value: "", unit: "" });
+                  setDataForm({ jsonContent: "{}" });
+                  setJsonValid(true);
                 }}
               >
                 取消
               </Button>
               <Button
-                onClick={handleAddDataPoint}
-                disabled={!dataForm().name || !dataForm().value}
+                onClick={handleUpdateData}
+                disabled={!jsonValid()}
               >
-                添加
+                保存
               </Button>
+            </div>
+          </div>
+        </Modal>
+
+        {/* Webhook 管理弹窗 */}
+        <Modal
+          isOpen={showWebhookModal()}
+          onClose={() => {
+            setShowWebhookModal(false);
+            setWebhooks([]);
+          }}
+          title="Webhook 管理"
+        >
+          <div class="space-y-4">
+            <p class="text-sm text-gray-500">
+              通过 Webhook URL，你可以从外部系统推送数据到此项目。向 URL 发送 POST 请求即可更新数据。
+            </p>
+
+            {/* 创建按钮 */}
+            <Button
+              onClick={handleCreateWebhook}
+              disabled={webhookCreating()}
+              class="w-full"
+            >
+              <WebhookIcon class="mr-2 h-4 w-4" />
+              {webhookCreating() ? "创建中..." : "创建新的 Webhook"}
+            </Button>
+
+            {/* Webhook 列表 */}
+            <div class="space-y-3">
+              <For each={webhooks()}>
+                {(webhook) => (
+                  <div class="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+                    <div class="flex items-center justify-between mb-2">
+                      <div class="flex items-center gap-2">
+                        <Link class="h-4 w-4 text-gray-400" />
+                        <span class="text-sm font-mono text-gray-600 dark:text-gray-300">
+                          {webhook.token.substring(0, 8)}...
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteWebhook(webhook.token)}
+                        class="text-red-500 hover:text-red-600"
+                      >
+                        <Trash2 class="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div class="flex gap-2">
+                      <input
+                        type="text"
+                        readonly
+                        value={getWebhookUrl(webhook.token)}
+                        class="flex-1 text-xs bg-white dark:bg-gray-900 border rounded px-2 py-1 font-mono text-gray-600 dark:text-gray-300"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyWebhookUrl(getWebhookUrl(webhook.token))}
+                      >
+                        <Copy class="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div class="flex items-center gap-4 mt-2 text-xs text-gray-400">
+                      <span>创建时间: {formatDate(webhook.createdAt)}</span>
+                      {webhook.lastUsedAt && (
+                        <span>最后使用: {formatDate(webhook.lastUsedAt)}</span>
+                      )}
+                      <span>调用次数: {webhook.callCount}</span>
+                    </div>
+                  </div>
+                )}
+              </For>
+              <Show when={webhooks().length === 0}>
+                <div class="text-center text-gray-400 py-4">
+                  暂无 Webhook，点击上方按钮创建
+                </div>
+              </Show>
+            </div>
+
+            {/* 使用说明 */}
+            <div class="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded text-sm text-blue-700 dark:text-blue-300">
+              <p class="font-medium mb-1">使用说明:</p>
+              <pre class="text-xs font-mono whitespace-pre-wrap">{`curl -X POST [webhook_url] -H "Content-Type: application/json" -d '{"key": "value"}'`}</pre>
             </div>
           </div>
         </Modal>

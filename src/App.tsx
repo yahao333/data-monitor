@@ -2,6 +2,7 @@ import { createSignal, onMount, Show } from "solid-js";
 import { Router, Route, useParams } from "@solidjs/router";
 import { Home } from "~/pages/Home";
 import { ShareView } from "~/pages/ShareView";
+import { Dashboard } from "~/pages/Dashboard";
 import { Header } from "~/components/Header";
 import { setClerk, getClerk, appStore } from "~/stores";
 
@@ -12,6 +13,11 @@ function SharePage() {
   const params = useParams();
   const token = params.token || "";
   return <ShareView token={token} />;
+}
+
+function DashboardPage() {
+  const params = useParams();
+  return <Dashboard />;
 }
 
 function AppRoutes() {
@@ -99,6 +105,7 @@ function AppRoutes() {
       <main>
         <Router>
           <Route path="/" component={Home} />
+          <Route path="/project/:id/dashboard" component={DashboardPage} />
           <Route path="/share/:token" component={SharePage} />
         </Router>
       </main>

@@ -45,3 +45,4 @@ bun.lock
 
 # Test coverage
 coverage
+howto_webhook_worker.md
