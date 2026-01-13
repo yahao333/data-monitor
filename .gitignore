@@ -38,6 +38,7 @@ bun.lock
 .env.local
 .env.*.local
 
+
 # Vercel
 .vercel
 .vercel-storage-state.json
