@@ -17,7 +17,7 @@ dist-ssr
 
 # Bun
 .bun
-bun.lockb
+bun.lock
 
 # TypeScript
 *.tsbuildinfo
