@@ -1,7 +1,7 @@
 import { createSignal, For, Show } from "solid-js";
 import { Button, Input, Textarea, Card, CardHeader, CardTitle, CardDescription, CardContent, Modal } from "~/components";
 import { appStore } from "~/stores";
-import { projectApi, dataApi } from "~/lib/api";
+import * as api from "~/lib/api";
 import { formatDate } from "~/lib/utils";
 import type { DataProject, DataPoint } from "~/types";
 import { Trash2, Edit, Share2, Plus, RefreshCw } from "lucide-solid";
@@ -35,7 +35,7 @@ export function Home() {
     if (!appStore.isAuthenticated()) return;
     setIsLoading(true);
     try {
-      const projects = await projectApi.list();
+      const projects = await api.listProjects();
       appStore.setProjects(projects);
     } catch (err) {
       appStore.setError(err instanceof Error ? err.message : "加载项目失败");
@@ -48,7 +48,7 @@ export function Home() {
   async function loadDataPoints(projectId: string) {
     setIsLoading(true);
     try {
-      const data = await dataApi.list(projectId);
+      const data = await api.listDataPoints(projectId);
       setDataPoints(data);
     } catch (err) {
       appStore.setError(err instanceof Error ? err.message : "加载数据失败");
@@ -62,7 +62,7 @@ export function Home() {
     if (!formData().name.trim()) return;
     setIsLoading(true);
     try {
-      const newProject = await projectApi.create({
+      const newProject = await api.createProject({
         name: formData().name,
         description: formData().description,
       });
@@ -81,7 +81,7 @@ export function Home() {
     if (!confirm("确定要删除这个项目吗？")) return;
     setIsLoading(true);
     try {
-      await projectApi.delete(projectId);
+      await api.deleteProject(projectId);
       appStore.setProjects(appStore.projects().filter((p) => p.id !== projectId));
     } catch (err) {
       appStore.setError(err instanceof Error ? err.message : "删除项目失败");
@@ -95,7 +95,7 @@ export function Home() {
     if (!editingProject()) return;
     setIsLoading(true);
     try {
-      const updated = await projectApi.update(editingProject()!.id, {
+      const updated = await api.updateProject(editingProject()!.id, {
         name: formData().name,
         description: formData().description,
       });
@@ -114,9 +114,9 @@ export function Home() {
   // 生成分享链接
   async function handleGenerateShareLink(project: DataProject) {
     try {
-      const updated = await projectApi.regenerateToken(project.id);
+      const updated = await api.regenerateToken(project.id);
       setShareToken(updated.shareToken || "");
-      setSelectedProject(project);
+      setSelectedProject(updated);
       setShowShareModal(true);
     } catch (err) {
       appStore.setError(err instanceof Error ? err.message : "生成分享链接失败");
@@ -130,7 +130,7 @@ export function Home() {
 
     setIsLoading(true);
     try {
-      await dataApi.create(project.id, {
+      await api.createDataPoint(project.id, {
         name: dataForm().name,
         value: parseFloat(dataForm().value),
         unit: dataForm().unit,
@@ -152,7 +152,7 @@ export function Home() {
 
     setIsLoading(true);
     try {
-      await dataApi.delete(project.id, dataPointId);
+      await api.deleteDataPoint(project.id, dataPointId);
       setDataPoints(dataPoints().filter((d) => d.id !== dataPointId));
     } catch (err) {
       appStore.setError(err instanceof Error ? err.message : "删除数据失败");

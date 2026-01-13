@@ -1,13 +1,14 @@
 import { createSignal, onMount, Show, For } from "solid-js";
-import { dataApi } from "~/lib/api";
+import * as api from "~/lib/api";
 import { formatDate } from "~/lib/utils";
-import type { DataPoint } from "~/types";
+import type { DataPoint, DataProject } from "~/types";
 
 interface ShareViewProps {
   token: string;
 }
 
 export function ShareView(props: ShareViewProps) {
+  const [project, setProject] = createSignal<DataProject | null>(null);
   const [dataPoints, setDataPoints] = createSignal<DataPoint[]>([]);
   const [isLoading, setIsLoading] = createSignal(true);
   const [error, setError] = createSignal<string | null>(null);
@@ -16,8 +17,16 @@ export function ShareView(props: ShareViewProps) {
   async function loadData() {
     setIsLoading(true);
     try {
-      // 通过令牌获取数据
-      const data = await dataApi.listByToken(props.token);
+      // 通过令牌获取项目
+      const proj = await api.getProjectByToken(props.token);
+      if (!proj) {
+        setError("项目不存在或令牌无效");
+        return;
+      }
+      setProject(proj);
+
+      // 获取数据点
+      const data = await api.listDataPoints(proj.id);
       setDataPoints(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "加载数据失败");
@@ -47,6 +56,18 @@ export function ShareView(props: ShareViewProps) {
   return (
     <div class="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        {/* 项目标题 */}
+        <Show when={project()}>
+          <div class="mb-6">
+            <h1 class="text-3xl font-bold text-gray-900 dark:text-gray-100">
+              {project()?.name}
+            </h1>
+            <p class="mt-2 text-gray-600 dark:text-gray-400">
+              {project()?.description || "暂无描述"}
+            </p>
+          </div>
+        </Show>
+
         {/* 错误提示 */}
         <Show when={error()}>
           <div class="mb-4 rounded-lg bg-red-100 p-4 text-red-700 dark:bg-red-900/20 dark:text-red-400">
