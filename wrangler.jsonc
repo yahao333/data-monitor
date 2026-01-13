@@ -1,7 +1,5 @@
 {
   "name": "data-monitor",
   "compatibility_date": "2025-01-01",
-  "pages_build": {
-    "output_directory": "./dist"
-  }
+  "pages_build_output_dir": "./dist"
 }
