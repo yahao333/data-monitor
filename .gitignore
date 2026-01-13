@@ -40,6 +40,7 @@ bun.lock
 
 # Vercel
 .vercel
+.vercel-storage-state.json
 
 # Test coverage
 coverage
