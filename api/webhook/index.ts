@@ -6,7 +6,6 @@
  */
 
 import { Redis } from '@upstash/redis';
-import { kv } from '@vercel/kv';
 
 // 初始化 Upstash Redis 客户端
 const redis = new Redis({
