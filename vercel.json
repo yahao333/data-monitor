@@ -27,20 +27,6 @@
       "src": "/api/webhook",
       "methods": ["GET"],
       "dest": "/api/webhook.ts"
-    },
-    {
-      "src": "/share/(.+)",
-      "status": 200,
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache" }
-      ]
-    },
-    {
-      "src": "/project/(.+)",
-      "status": 200,
-      "headers": [
-        { "key": "Cache-Control", "value": "no-cache" }
-      ]
     }
   ],
   "rewrites": [
@@ -55,6 +41,14 @@
     {
       "source": "/(.*)",
       "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/share/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache" }
+      ]
     }
   ]
 }
