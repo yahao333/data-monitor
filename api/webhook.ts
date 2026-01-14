@@ -189,9 +189,20 @@ export async function POST(request: Request) {
 
       const listKey = `project:${projectId}:webhooks`;
       const listStr = await redis.get(listKey) as string | null;
-      const webhooks: string[] = listStr ? JSON.parse(listStr) : [];
+      console.log('[Webhook Create] listKey:', listKey, 'listStr:', listStr);
+
+      let webhooks: string[] = [];
+      if (listStr) {
+        try {
+          webhooks = JSON.parse(listStr);
+        } catch (e) {
+          console.error('[Webhook Create] JSON 解析错误:', e);
+          webhooks = [];
+        }
+      }
       webhooks.push(token);
       await redis.set(listKey, JSON.stringify(webhooks));
+      console.log('[Webhook Create] 写入 webhooks:', webhooks);
 
       const origin = request.headers.get('Origin') || '';
       const webhookUrl = `${origin}/api/webhook/${token}`;
