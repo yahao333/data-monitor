@@ -1,6 +1,7 @@
 import { createSignal, onMount, onCleanup, For, Show, createEffect } from "solid-js";
 import { useParams, useNavigate } from "@solidjs/router";
 import * as api from "~/lib/api";
+import { redis } from "~/lib/upstash";
 import type { DataProject } from "~/types";
 import {
   ArrowLeft,
@@ -18,6 +19,8 @@ import {
   Database,
   ChevronRight,
   ChevronDown,
+  Save,
+  RotateCcw,
 } from "lucide-solid";
 
 // Widget type
@@ -370,6 +373,40 @@ export function Dashboard() {
   const [isFullscreen, setIsFullscreen] = createSignal(false);
   const [jsonTree, setJsonTree] = createSignal<JsonNode[]>([]);
   const [showSidebar, setShowSidebar] = createSignal(true);
+  const [isSaving, setIsSaving] = createSignal(false);
+  const [lastSaved, setLastSaved] = createSignal<string | null>(null);
+
+  // 保存 widgets 布局到 Redis
+  async function saveWidgets() {
+    if (!projectId) return;
+    setIsSaving(true);
+    try {
+      const key = `project:${projectId}:dashboard`;
+      await redis.set(key, widgets());
+      setLastSaved(new Date().toLocaleTimeString());
+      console.log("[Dashboard] 布局已保存");
+    } catch (err) {
+      console.error("[Dashboard] 保存布局失败:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  // 从 Redis 加载 widgets 布局
+  async function loadWidgets() {
+    if (!projectId) return [];
+    try {
+      const key = `project:${projectId}:dashboard`;
+      const saved = await redis.get(key) as Widget[] | null;
+      if (saved && Array.isArray(saved) && saved.length > 0) {
+        console.log("[Dashboard] 加载保存的布局:", saved.length, "个组件");
+        return saved;
+      }
+    } catch (err) {
+      console.error("[Dashboard] 加载布局失败:", err);
+    }
+    return [];
+  }
 
   async function loadData() {
     setIsLoading(true);
@@ -379,6 +416,11 @@ export function Dashboard() {
       if (proj?.content) {
         const tree = generateJsonTree(proj.content);
         setJsonTree(tree);
+      }
+      // 加载保存的 widgets 布局
+      const savedWidgets = await loadWidgets();
+      if (savedWidgets.length > 0) {
+        setWidgets(savedWidgets);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
@@ -390,6 +432,14 @@ export function Dashboard() {
   onMount(() => {
     loadData();
   });
+
+  // 重置布局
+  function resetLayout() {
+    if (confirm("确定要清除所有组件吗？此操作不可恢复。")) {
+      setWidgets([]);
+      setLastSaved(null);
+    }
+  }
 
   createEffect(() => {
     const proj = project();
@@ -506,6 +556,28 @@ export function Dashboard() {
           <button onClick={() => widgets().forEach((w) => transformWidget(w, "rotate"))} class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded" title="Rotate">
             <RotateCw class="w-5 h-5" />
           </button>
+
+          <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2" />
+
+          <button
+            onClick={saveWidgets}
+            disabled={isSaving() || widgets().length === 0}
+            class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-50"
+            title="Save Layout"
+          >
+            <Save class={`w-5 h-5 ${isSaving() ? "animate-pulse" : ""}`} />
+          </button>
+          <button
+            onClick={resetLayout}
+            disabled={widgets().length === 0}
+            class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded disabled:opacity-50 text-red-500"
+            title="Reset Layout"
+          >
+            <RotateCcw class="w-5 h-5" />
+          </button>
+          <Show when={lastSaved()}>
+            <span class="text-xs text-gray-400 ml-1">Saved {lastSaved()}</span>
+          </Show>
 
           <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-2" />
 
