@@ -8,8 +8,8 @@ import type {
 import { redis, KEYS, generateShareToken } from "./upstash";
 import { getClerk } from "~/stores";
 
-// Webhook Worker 配置
-const WEBHOOK_WORKER_URL = import.meta.env.VITE_WEBHOOK_WORKER_URL || "";
+// Vercel Serverless Webhook 配置
+const WEBHOOK_BASE_URL = import.meta.env.VITE_WEBHOOK_BASE_URL || "";
 const WEBHOOK_API_KEY = import.meta.env.VITE_WEBHOOK_API_KEY || "";
 
 // 获取当前用户 ID
@@ -18,15 +18,15 @@ function getUserId(): string | null {
   return clerk?.user?.id || null;
 }
 
-// 调用 Webhook Worker API
+// 调用 Vercel Serverless Webhook API
 async function webhookWorkerRequest(endpoint: string, method = "GET", body?: unknown): Promise<WebhookResponse> {
-  if (!WEBHOOK_WORKER_URL || !WEBHOOK_API_KEY) {
-    console.warn("[Webhook] Worker URL 或 API Key 未配置");
+  if (!WEBHOOK_BASE_URL || !WEBHOOK_API_KEY) {
+    console.warn("[Webhook] Vercel URL 或 API Key 未配置");
     return { success: false, error: "Webhook 服务未配置" };
   }
 
   try {
-    const response = await fetch(`${WEBHOOK_WORKER_URL}${endpoint}`, {
+    const response = await fetch(`${WEBHOOK_BASE_URL}${endpoint}`, {
       method,
       headers: {
         "Content-Type": "application/json",
@@ -196,24 +196,24 @@ export async function regenerateToken(id: string): Promise<DataProject> {
 
 // 创建 Webhook
 export async function createWebhook(projectId: string): Promise<WebhookResponse> {
-  console.log("[Webhook] 创建 webhook:", { projectId, workerUrl: WEBHOOK_WORKER_URL ? "已配置" : "未配置" });
-  return webhookWorkerRequest("/api/webhook/create", "POST", { projectId });
+  console.log("[Webhook] 创建 webhook:", { projectId, baseUrl: WEBHOOK_BASE_URL ? "已配置" : "未配置" });
+  return webhookWorkerRequest("/api/webhook/manage/create", "POST", { projectId });
 }
 
 // 获取项目的所有 Webhook
 export async function listWebhooks(projectId: string): Promise<WebhookResponse> {
   console.log("[Webhook] 列出 webhooks:", { projectId });
-  return webhookWorkerRequest(`/api/webhook/list/${projectId}`, "GET");
+  return webhookWorkerRequest(`/api/webhook/manage/list/${projectId}`, "GET");
 }
 
 // 删除 Webhook
 export async function deleteWebhook(projectId: string, token: string): Promise<WebhookResponse> {
   console.log("[Webhook] 删除 webhook:", { projectId, token: token.substring(0, 8) + "..." });
-  return webhookWorkerRequest(`/api/webhook/delete/${projectId}/${token}`, "DELETE");
+  return webhookWorkerRequest(`/api/webhook/manage/delete/${projectId}/${token}`, "DELETE");
 }
 
 // 获取 Webhook URL（用于推送数据）
 export function getWebhookUrl(token: string): string {
-  // Pages Function 的 webhook 端点
-  return `${WEBHOOK_WORKER_URL}/api/webhook/${token}`;
+  // Vercel Serverless 的 webhook 端点
+  return `${WEBHOOK_BASE_URL}/api/webhook/${token}`;
 }
