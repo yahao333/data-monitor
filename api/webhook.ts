@@ -52,6 +52,11 @@ const corsHeaders = {
 // 验证 API Key
 function validateApiKey(request: Request): boolean {
   const apiKey = request.headers.get('X-API-Key');
+  console.log('[Webhook] API Key 验证:', {
+    received: apiKey ? apiKey.substring(0, 10) + '...' : '未提供',
+    expected: WEBHOOK_API_KEY ? WEBHOOK_API_KEY.substring(0, 10) + '...' : '未设置',
+    match: apiKey === WEBHOOK_API_KEY
+  });
   return apiKey === WEBHOOK_API_KEY;
 }
 
