@@ -82,7 +82,7 @@ export async function GET(request: Request) {
 
   // /api/webhook/manage/list/{projectId} - 列出 webhooks
   const listMatch = path.match(/^\/api\/webhook\/manage\/list\/(.+)$/);
-  console.log('[Webhook List] path:', path, 'listMatch:', listMatch);
+  console.log('[Webhook List] path:', path, 'match:', !!listMatch);
   if (listMatch) {
     if (!validateApiKey(request)) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
