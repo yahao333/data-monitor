@@ -126,9 +126,20 @@ export async function GET(request: Request) {
       // 获取每个 webhook 的详情
       const webhookDetails = await Promise.all(
         webhooks.map(async (t) => {
-          const detailStr = await redis.get(`webhook:${projectId}:${t}`) as string | null;
-          if (detailStr) {
-            const detail = JSON.parse(detailStr);
+          const detailRaw = await redis.get(`webhook:${projectId}:${t}`);
+          if (detailRaw) {
+            // 处理对象或 JSON 字符串
+            let detail: Record<string, unknown>;
+            if (typeof detailRaw === 'object' && !Array.isArray(detailRaw)) {
+              detail = detailRaw as Record<string, unknown>;
+            } else {
+              try {
+                detail = JSON.parse(detailRaw as string);
+              } catch (e) {
+                console.error('[Webhook List] 解析 webhook 详情失败:', e);
+                return null;
+              }
+            }
             const lastUsed = await redis.get(`webhook:token:${t}:lastUsed`) as string | null;
             if (lastUsed) detail.lastUsedAt = lastUsed;
             const callCount = await redis.get(`webhook:token:${t}:callCount`) as number | null;
@@ -191,7 +202,7 @@ export async function POST(request: Request) {
       };
 
       await redis.set(`webhook:token:${token}`, projectId);
-      await redis.set(`webhook:${projectId}:${token}`, JSON.stringify(webhookData));
+      await redis.set(`webhook:${projectId}:${token}`, webhookData);
 
       const listKey = `project:${projectId}:webhooks`;
       const rawValue = await redis.get(listKey);
