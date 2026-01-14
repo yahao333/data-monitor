@@ -9,9 +9,17 @@
 
 import { Redis } from '@upstash/redis';
 
+// 初始化 Upstash Redis 客户端（添加详细日志）
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL;
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+console.log('[Webhook-Manage] 环境变量检查:');
+console.log('[Webhook-Manage] UPSTASH_REDIS_REST_URL:', UPSTASH_URL ? '已设置' : '未设置');
+console.log('[Webhook-Manage] UPSTASH_REDIS_REST_TOKEN:', UPSTASH_TOKEN ? '已设置' : '未设置');
+
 const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL || '',
-  token: process.env.UPSTASH_REDIS_REST_TOKEN || '',
+  url: UPSTASH_URL || '',
+  token: UPSTASH_TOKEN || '',
 });
 
 const WEBHOOK_API_KEY = process.env.VITE_WEBHOOK_API_KEY || '';
