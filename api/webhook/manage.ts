@@ -64,8 +64,9 @@ export async function GET(request: Request) {
   const pathParts = path.split('/').filter(Boolean);
 
   // /api/webhook/manage/list/{projectId}
-  if (pathParts[2] === 'list' && pathParts[3]) {
-    const projectId = pathParts[3];
+  // pathParts = ['api', 'webhook', 'manage', 'list', 'projectId']
+  if (pathParts[3] === 'list' && pathParts[4]) {
+    const projectId = pathParts[4];
 
     if (!validateApiKey(request)) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -122,7 +123,8 @@ export async function POST(request: Request) {
   const pathParts = path.split('/').filter(Boolean);
 
   // /api/webhook/manage/create
-  if (pathParts[2] === 'create') {
+  // pathParts = ['api', 'webhook', 'manage', 'create']
+  if (pathParts[3] === 'create') {
     if (!validateApiKey(request)) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
@@ -187,7 +189,8 @@ export async function DELETE(request: Request) {
   const pathParts = path.split('/').filter(Boolean);
 
   // /api/webhook/manage/delete/{projectId}/{token}
-  if (pathParts[2] === 'delete' && pathParts[3] && pathParts[4]) {
+  // pathParts = ['api', 'webhook', 'manage', 'delete', 'projectId', 'token']
+  if (pathParts[3] === 'delete' && pathParts[4] && pathParts[5]) {
     if (!validateApiKey(request)) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 401,
@@ -196,8 +199,8 @@ export async function DELETE(request: Request) {
     }
 
     try {
-      const projectId = pathParts[3];
-      const token = pathParts[4];
+      const projectId = pathParts[4];
+      const token = pathParts[5];
 
       await redis.del(`webhook:token:${token}`);
       await redis.del(`webhook:${projectId}:${token}`);
