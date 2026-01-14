@@ -30,6 +30,7 @@ export const KEYS = {
   project: (id: string) => `project:${id}`,
   projectData: (projectId: string) => `project:${projectId}:data`,
   dataPoint: (id: string) => `data:${id}`,
+  shareToken: (token: string) => `share:${token}`,
 };
 
 // 辅助函数：生成分享令牌

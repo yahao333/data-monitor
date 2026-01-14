@@ -76,16 +76,23 @@ export async function getProject(id: string): Promise<DataProject> {
 
 // 通过分享令牌获取项目（公开访问）
 export async function getProjectByToken(token: string): Promise<DataProject | null> {
-  // 遍历查找匹配的项目（生产环境可以用索引优化）
-  const userId = getUserId();
-  if (userId) {
-    const projectIds = (await redis.get(KEYS.userProjects(userId))) as string[] || [];
-    for (const id of projectIds) {
-      const project = await redis.get<DataProject>(KEYS.project(id));
-      if (project?.shareToken === token) return project;
-    }
+  if (!token) return null;
+
+  // 直接通过 shareToken 索引查找项目 ID
+  const projectId = await redis.get<string>(KEYS.shareToken(token)) as string | null;
+  if (!projectId) {
+    console.log('[getProjectByToken] 未找到 token 对应的项目:', token);
+    return null;
   }
-  return null;
+
+  // 获取项目数据
+  const project = await redis.get<DataProject>(KEYS.project(projectId));
+  if (!project) {
+    console.log('[getProjectByToken] 项目不存在:', projectId);
+    return null;
+  }
+
+  return project;
 }
 
 // 创建项目（初始 content 为空对象）
@@ -93,13 +100,14 @@ export async function createProject(data: CreateProjectRequest): Promise<DataPro
   const userId = getUserId();
   if (!userId) throw new Error("未登录");
 
+  const shareToken = generateShareToken();
   const project: DataProject = {
     id: crypto.randomUUID(),
     name: data.name,
     description: data.description || "",
     ownerId: userId,
     isPublic: data.isPublic || false,
-    shareToken: generateShareToken(),
+    shareToken: shareToken,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     content: {}, // 初始为空对象
@@ -107,6 +115,9 @@ export async function createProject(data: CreateProjectRequest): Promise<DataPro
 
   // 保存项目
   await redis.set(KEYS.project(project.id), project);
+
+  // 保存 shareToken 索引（用于公开访问）
+  await redis.set(KEYS.shareToken(shareToken), project.id);
 
   // 添加到用户项目列表
   const projectIds = (await redis.get(KEYS.userProjects(userId))) as string[] || [];
@@ -182,13 +193,21 @@ export async function regenerateToken(id: string): Promise<DataProject> {
   if (!project) throw new Error("项目不存在");
   if (project.ownerId !== userId) throw new Error("无权操作此项目");
 
+  // 删除旧的 shareToken 索引
+  if (project.shareToken) {
+    await redis.del(KEYS.shareToken(project.shareToken));
+  }
+
+  const newShareToken = generateShareToken();
   const updated: DataProject = {
     ...project,
-    shareToken: generateShareToken(),
+    shareToken: newShareToken,
     updatedAt: new Date().toISOString(),
   };
 
   await redis.set(KEYS.project(id), updated);
+  // 保存新的 shareToken 索引
+  await redis.set(KEYS.shareToken(newShareToken), id);
   return updated;
 }
 
