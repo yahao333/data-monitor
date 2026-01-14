@@ -69,6 +69,7 @@ export async function OPTIONS() {
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const path = url.pathname;
+  console.log('[Webhook GET] path:', path);
 
   // /api/webhook - 健康检查
   if (path === '/api/webhook') {
