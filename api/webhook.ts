@@ -89,8 +89,28 @@ export async function GET(request: Request) {
     try {
       const projectId = listMatch[1];
       const listKey = `project:${projectId}:webhooks`;
+      console.log('[Webhook List] 查询 key:', listKey);
+
       const listStr = await redis.get(listKey) as string | null;
-      const webhooks: string[] = listStr ? JSON.parse(listStr) : [];
+      console.log('[Webhook List] listStr:', listStr);
+
+      if (!listStr) {
+        return new Response(JSON.stringify({
+          success: true,
+          webhooks: [],
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      let webhooks: string[];
+      try {
+        webhooks = JSON.parse(listStr);
+        console.log('[Webhook List] webhooks:', webhooks);
+      } catch (e) {
+        console.error('[Webhook List] JSON 解析错误:', e);
+        webhooks = [];
+      }
 
       // 获取每个 webhook 的详情
       const webhookDetails = await Promise.all(
