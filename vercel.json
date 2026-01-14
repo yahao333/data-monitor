@@ -17,6 +17,16 @@
       "src": "/api/webhook/manage/delete/(.+)/(.+)",
       "methods": ["DELETE"],
       "dest": "/api/webhook.ts"
+    },
+    {
+      "src": "/api/webhook/(.+)",
+      "methods": ["POST", "GET"],
+      "dest": "/api/webhook.ts"
+    },
+    {
+      "src": "/api/webhook",
+      "methods": ["GET"],
+      "dest": "/api/webhook.ts"
     }
   ]
 }
