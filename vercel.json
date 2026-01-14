@@ -1,13 +1,7 @@
 {
   "version": 2,
-  "framework": null,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": {
-    "api/**/*.ts": {
-      "runtime": "vercel-node@4.2.4"
-    }
-  },
   "routes": [
     {
       "src": "/api/webhook/manage/create",
@@ -15,34 +9,14 @@
       "dest": "/api/webhook.ts"
     },
     {
-      "src": "/api/webhook/manage/list/(.*)",
+      "src": "/api/webhook/manage/list/(.+)",
       "methods": ["GET"],
       "dest": "/api/webhook.ts"
     },
     {
-      "src": "/api/webhook/manage/delete/(.*)/(.*)",
+      "src": "/api/webhook/manage/delete/(.+)/(.+)",
       "methods": ["DELETE"],
       "dest": "/api/webhook.ts"
-    },
-    {
-      "src": "/api/webhook/(.*)",
-      "methods": ["POST", "GET"],
-      "dest": "/api/webhook.ts"
-    },
-    {
-      "src": "/api/webhook",
-      "methods": ["GET"],
-      "dest": "/api/webhook.ts"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, PUT, DELETE, OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization" }
-      ]
     }
   ]
 }
