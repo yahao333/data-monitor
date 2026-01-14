@@ -97,26 +97,31 @@ export async function GET(request: Request) {
       const listKey = `project:${projectId}:webhooks`;
       console.log('[Webhook List] 查询 key:', listKey);
 
-      const listStr = await redis.get(listKey) as string | null;
-      console.log('[Webhook List] listStr:', listStr);
+      const rawValue = await redis.get(listKey);
+      console.log('[Webhook List] rawValue:', rawValue, 'type:', typeof rawValue);
 
-      if (!listStr) {
-        return new Response(JSON.stringify({
-          success: true,
-          webhooks: [],
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      // 处理多种返回类型：可能是 string, string[], Set, 或 null
+      let webhooks: string[] = [];
+
+      if (Array.isArray(rawValue)) {
+        // 已经是数组
+        webhooks = rawValue as string[];
+        console.log('[Webhook List] 使用数组类型的值');
+      } else if (rawValue !== null && rawValue !== undefined) {
+        // 尝试解析 JSON 字符串
+        try {
+          const parsed = JSON.parse(rawValue as string);
+          webhooks = Array.isArray(parsed) ? parsed : [];
+          console.log('[Webhook List] 解析 JSON 成功:', webhooks);
+        } catch (e) {
+          console.error('[Webhook List] JSON 解析错误:', e);
+          webhooks = [];
+        }
+      } else {
+        console.log('[Webhook List] 无数据');
       }
 
-      let webhooks: string[];
-      try {
-        webhooks = JSON.parse(listStr);
-        console.log('[Webhook List] webhooks:', webhooks);
-      } catch (e) {
-        console.error('[Webhook List] JSON 解析错误:', e);
-        webhooks = [];
-      }
+      console.log('[Webhook List] 最终 webhooks:', webhooks);
 
       // 获取每个 webhook 的详情
       const webhookDetails = await Promise.all(
@@ -189,25 +194,33 @@ export async function POST(request: Request) {
       await redis.set(`webhook:${projectId}:${token}`, JSON.stringify(webhookData));
 
       const listKey = `project:${projectId}:webhooks`;
-      const listStr = await redis.get(listKey) as string | null;
-      console.log('[Webhook Create] listKey:', listKey, 'listStr:', listStr);
+      const rawValue = await redis.get(listKey);
+      console.log('[Webhook Create] listKey:', listKey, 'rawValue:', rawValue);
 
+      // 处理多种返回类型
       let webhooks: string[] = [];
-      if (listStr) {
+      if (Array.isArray(rawValue)) {
+        webhooks = rawValue as string[];
+        console.log('[Webhook Create] 现有数组 webhooks:', webhooks);
+      } else if (rawValue) {
         try {
-          webhooks = JSON.parse(listStr);
+          const parsed = JSON.parse(rawValue as string);
+          webhooks = Array.isArray(parsed) ? parsed : [];
+          console.log('[Webhook Create] 解析 JSON webhooks:', webhooks);
         } catch (e) {
           console.error('[Webhook Create] JSON 解析错误:', e);
           webhooks = [];
         }
       }
+
       webhooks.push(token);
+      // 统一使用 JSON.stringify 存储
       await redis.set(listKey, JSON.stringify(webhooks));
       console.log('[Webhook Create] 写入 webhooks:', webhooks);
 
       // 立即读取验证
-      const verifyStr = await redis.get(listKey) as string | null;
-      console.log('[Webhook Create] 验证读取:', verifyStr);
+      const verifyValue = await redis.get(listKey);
+      console.log('[Webhook Create] 验证读取:', verifyValue);
 
       const origin = request.headers.get('Origin') || '';
       const webhookUrl = `${origin}/api/webhook/${token}`;
