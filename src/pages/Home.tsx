@@ -184,11 +184,15 @@ export function Home() {
 
   // 加载项目的 webhooks
   async function loadWebhooks(projectId: string) {
+    console.log("[Webhook] 开始加载 webhooks:", projectId);
     try {
       const result = await api.listWebhooks(projectId);
+      console.log("[Webhook] listWebhooks 返回:", result);
       if (result.success && result.webhooks) {
+        console.log("[Webhook] 设置 webhooks 数量:", result.webhooks.length);
         setWebhooks(result.webhooks);
       } else {
+        console.log("[Webhook] 无 webhooks, error:", result.error);
         setWebhooks([]);
       }
     } catch (err) {
@@ -202,15 +206,20 @@ export function Home() {
     const project = selectedProject();
     if (!project) return;
 
+    console.log("[Webhook] 开始创建 webhook, projectId:", project.id);
     setWebhookCreating(true);
     try {
       const result = await api.createWebhook(project.id);
+      console.log("[Webhook] createWebhook 返回:", result);
       if (result.success) {
+        console.log("[Webhook] 创建成功, token:", result.token);
         await loadWebhooks(project.id);
       } else {
+        console.log("[Webhook] 创建失败:", result.error);
         appStore.setError(result.error || "创建 webhook 失败");
       }
     } catch (err) {
+      console.error("[Webhook] 创建异常:", err);
       appStore.setError(err instanceof Error ? err.message : "创建 webhook 失败");
     } finally {
       setWebhookCreating(false);
