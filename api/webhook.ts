@@ -204,6 +204,10 @@ export async function POST(request: Request) {
       await redis.set(listKey, JSON.stringify(webhooks));
       console.log('[Webhook Create] 写入 webhooks:', webhooks);
 
+      // 立即读取验证
+      const verifyStr = await redis.get(listKey) as string | null;
+      console.log('[Webhook Create] 验证读取:', verifyStr);
+
       const origin = request.headers.get('Origin') || '';
       const webhookUrl = `${origin}/api/webhook/${token}`;
 
