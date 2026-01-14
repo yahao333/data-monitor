@@ -197,22 +197,23 @@ export async function regenerateToken(id: string): Promise<DataProject> {
 // 创建 Webhook
 export async function createWebhook(projectId: string): Promise<WebhookResponse> {
   console.log("[Webhook] 创建 webhook:", { projectId, workerUrl: WEBHOOK_WORKER_URL ? "已配置" : "未配置" });
-  return webhookWorkerRequest("/api/webhook", "POST", { projectId });
+  return webhookWorkerRequest("/api/webhook/create", "POST", { projectId });
 }
 
 // 获取项目的所有 Webhook
 export async function listWebhooks(projectId: string): Promise<WebhookResponse> {
   console.log("[Webhook] 列出 webhooks:", { projectId });
-  return webhookWorkerRequest(`/api/webhook/${projectId}`, "GET");
+  return webhookWorkerRequest(`/api/webhook/list/${projectId}`, "GET");
 }
 
 // 删除 Webhook
 export async function deleteWebhook(projectId: string, token: string): Promise<WebhookResponse> {
   console.log("[Webhook] 删除 webhook:", { projectId, token: token.substring(0, 8) + "..." });
-  return webhookWorkerRequest(`/api/webhook/${projectId}/${token}`, "DELETE");
+  return webhookWorkerRequest(`/api/webhook/delete/${projectId}/${token}`, "DELETE");
 }
 
-// 获取 Webhook URL（用于显示）
+// 获取 Webhook URL（用于推送数据）
 export function getWebhookUrl(token: string): string {
-  return `${WEBHOOK_WORKER_URL}/webhook/${token}`;
+  // Pages Function 的 webhook 端点
+  return `${WEBHOOK_WORKER_URL}/api/webhook/${token}`;
 }
