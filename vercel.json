@@ -1,0 +1,35 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "api/**/*.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/webhook/manage/create",
+      "dest": "/api/webhook/manage.ts"
+    },
+    {
+      "src": "/api/webhook/manage/list/(.*)",
+      "dest": "/api/webhook/manage.ts"
+    },
+    {
+      "src": "/api/webhook/manage/delete/(.*)",
+      "dest": "/api/webhook/manage.ts"
+    },
+    {
+      "src": "/api/webhook/(.*)",
+      "dest": "/api/webhook/index.ts"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/$1"
+    }
+  ]
+}
